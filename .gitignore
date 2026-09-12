@@ -1,0 +1,44 @@
+# ---------- Python / Backend ----------
+backend/venv/
+backend/__pycache__/
+backend/**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.pytest_cache/
+
+# ---------- Node / Frontend ----------
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/npm-debug.log*
+
+# ---------- Environment / Secrets ----------
+.env
+backend/.env
+frontend/.env*.local
+
+# ---------- Data (recorded evidence, screenshots, DBs) ----------
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# ---------- Exports ----------
+exports/
+*.pdf
+*.html
+!frontend/**/*.html
+
+# ---------- OS / Editor ----------
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+*.log
+
+# ---------- Docker ----------
+docker-compose.override.yml
