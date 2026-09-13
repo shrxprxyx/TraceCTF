@@ -119,3 +119,80 @@ class WindowsPtySession:
         }
         await self.on_event(event)
         self._current_command = None
+        
+# ---------------------------------------------------------------------------
+# Docker container PTY session (for your Kali/Linux attack container)
+# ---------------------------------------------------------------------------
+class DockerPtySession:
+    """
+    Wraps a shell running inside an already-running Docker container by
+    attaching via `docker exec -it <container> <shell>` and driving it
+    as a subprocess with pipes. This avoids needing WSL2 on the host —
+    Docker Desktop itself handles the Linux side.
+
+    Command boundary detection uses the same sentinel-marker technique
+    as WindowsPtySession, since we're talking to a real Linux shell
+    (bash/sh), which supports the same trick natively.
+    """
+
+    SENTINEL = "__TRACECTF_CMD_DONE__"
+
+    def __init__(
+        self,
+        session_id: int,
+        on_event: Callable[[dict], Awaitable[None]],
+        container_name: str,
+        shell_cmd: str = "/bin/bash",
+    ):
+        self.session_id = session_id
+        self.on_event = on_event
+        self.container_name = container_name
+        self.shell_cmd = shell_cmd
+        self._proc: Optional[asyncio.subprocess.Process] = None
+        self._buffer = ""
+        self._current_command: Optional[str] = None
+        self._current_cwd: str = ""
+        self._running = False
+
+    async def start(self) -> None:
+        """
+        Launches `docker exec -it <container> <shell>` as a subprocess,
+        piping stdin/stdout so we can inject commands and read output.
+        """
+        self._proc = await asyncio.create_subprocess_exec(
+            "docker", "exec", "-i", self.container_name, self.shell_cmd,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.STDOUT,  # merge stderr into stdout stream
+        )
+        self._running = True
+        asyncio.create_task(self._read_loop())
+
+    async def stop(self) -> None:
+        self._running = False
+        if self._proc and self._proc.returncode is None:
+            self._proc.terminate()
+            await self._proc.wait()
+
+    def send_command(self, command: str, cwd_hint: str = "") -> None:
+        if not self._proc or not self._proc.stdin:
+            raise RuntimeError("DockerPtySession not started")
+
+        self._current_command = command
+        self._current_cwd = cwd_hint
+        full_line = f"{command}; echo {self.SENTINEL}\n"
+        self._proc.stdin.write(full_line.encode("utf-8"))
+        # fire-and-forget drain; caller doesn't need to await this
+        asyncio.create_task(self._proc.stdin.drain())
+
+    async def _read_loop(self) -> None:
+        if not self._proc or not self._proc.stdout:
+            return
+
+        while self._running and self._proc.returncode is None:
+            try:
+                chunk_bytes = await self._proc.stdout.read(1024)
+            except Exception:
+                break
+            if not chunk_bytes:
+                await asyncio.sleep(0.05)
