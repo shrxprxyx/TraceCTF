@@ -110,8 +110,7 @@ async def extract_finding_from_events(
                 "evidence_event_ids": [e.id for e in terminal_events],
                 "source": "llm",
             }
-        # LLM returned but result was malformed/untrustworthy — fall through to rules
-
+       
     # ---- Rule-based fallback path ----
     primary_event = terminal_events[0]
     rule_result = classify_command(primary_event.command, primary_event.stdout)
