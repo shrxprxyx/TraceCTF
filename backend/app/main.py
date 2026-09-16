@@ -95,11 +95,11 @@ async def health_check():
 # ---------------------------------------------------------------------
 # Routers — added incrementally as each is built in upcoming steps:
 #
-# from app.api.routes_session import router as session_router
-# app.include_router(session_router)
-#
-# from app.api.routes_events import router as events_router
-# app.include_router(events_router)
+from app.api.routes_session import router as session_router
+app.include_router(session_router)
+
+from app.api.routes_events import router as events_router
+app.include_router(events_router)
 #
 # from app.api.routes_findings import router as findings_router
 # app.include_router(findings_router)

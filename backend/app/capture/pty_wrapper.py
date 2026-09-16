@@ -119,7 +119,6 @@ class WindowsPtySession:
         }
         await self.on_event(event)
         self._current_command = None
-        
 # ---------------------------------------------------------------------------
 # Docker container PTY session (for your Kali/Linux attack container)
 # ---------------------------------------------------------------------------
@@ -196,3 +195,51 @@ class DockerPtySession:
                 break
             if not chunk_bytes:
                 await asyncio.sleep(0.05)
+                continue
+
+            chunk = chunk_bytes.decode("utf-8", errors="replace")
+            self._buffer += chunk
+
+            if self.SENTINEL in self._buffer:
+                output, _, remainder = self._buffer.partition(self.SENTINEL)
+                self._buffer = remainder
+                await self._emit_event(output)
+
+    async def _emit_event(self, raw_output: str) -> None:
+        if self._current_command is None:
+            return
+
+        event = {
+            "session_id": self.session_id,
+            "source": "terminal",
+            "timestamp": datetime.datetime.utcnow().isoformat(),
+            "command": mask_sensitive(self._current_command),
+            "stdout": mask_sensitive(raw_output.strip()),
+            "stderr": None,  # merged into stdout above via STDOUT redirect
+            "cwd": self._current_cwd,
+        }
+        await self.on_event(event)
+        self._current_command = None
+
+
+# ---------------------------------------------------------------------------
+# Factory — picks the right backend based on where the user wants to work
+# ---------------------------------------------------------------------------
+def create_pty_session(
+    session_id: int,
+    on_event: Callable[[dict], Awaitable[None]],
+    backend: str,
+    container_name: Optional[str] = None,
+):
+    """
+    backend: "windows" or "docker"
+    container_name: required if backend == "docker"
+    """
+    if backend == "windows":
+        return WindowsPtySession(session_id=session_id, on_event=on_event)
+    elif backend == "docker":
+        if not container_name:
+            raise ValueError("container_name is required for docker backend")
+        return DockerPtySession(session_id=session_id, on_event=on_event, container_name=container_name)
+    else:
+        raise ValueError(f"Unknown PTY backend: {backend}")
