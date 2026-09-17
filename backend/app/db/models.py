@@ -231,3 +231,14 @@ class UserNote(Base):
 
     session: Mapped["Session"] = relationship(back_populates="user_notes")
     related_event: Mapped[Optional["Event"]] = relationship(back_populates="user_notes")
+    
+# ---------------------------------------------------------------------------
+# Processed-event tracking — separate from findings, since "analyzed but
+# produced no finding" and "never analyzed" must be distinguishable.
+# ---------------------------------------------------------------------------
+class ProcessedEvent(Base):
+    __tablename__ = "processed_events"
+
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), primary_key=True)
+    processed_at: Mapped[datetime.datetime] = mapped_column(default=datetime.datetime.utcnow)
+    pipeline_version: Mapped[Optional[str]] = mapped_column(nullable=True)
