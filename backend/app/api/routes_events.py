@@ -26,9 +26,7 @@ from app.api.routes_session import _active_captures
 router = APIRouter(tags=["events"])
 
 
-# ---------------------------------------------------------------------------
 # Schemas
-# ---------------------------------------------------------------------------
 class SendCommandRequest(BaseModel):
     command: str
     cwd_hint: str = ""
@@ -54,9 +52,8 @@ class EventResponse(BaseModel):
         from_attributes = True
 
 
-# ---------------------------------------------------------------------------
+
 # Routes
-# ---------------------------------------------------------------------------
 @router.post("/sessions/{session_id}/command")
 async def send_command(session_id: int, req: SendCommandRequest):
     active = _active_captures.get(session_id)
